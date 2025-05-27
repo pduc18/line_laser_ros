@@ -29,18 +29,19 @@ public:
     this->declare_parameter<int>("baud_rate", 115200);
     this->declare_parameter<std::string>("frame_id", "base_laser_link");
     this->declare_parameter<int>("version_num", 1);
+    this->declare_parameter<std::string>("log_dir", std::string(std::getenv("HOME")) + "/ros2_ws/log");
 
     port_ = this->get_parameter("port").as_string();
     baud_rate_ = this->get_parameter("baud_rate").as_int();
     frame_id_ = this->get_parameter("frame_id").as_string();
     version_num_ = this->get_parameter("version_num").as_int();
+    std::string log_dir = this->get_parameter("log_dir").as_string();
 
     // Generate unique CSV filename with timestamp in workspace log directory
     auto now = std::chrono::system_clock::now();
     auto now_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
     ss << std::put_time(std::localtime(&now_time_t), "%Y%m%d_%H%M%S");
-    std::string log_dir = std::string(std::getenv("HOME")) + "/ros2_ws/log";
     // Create log directory if it doesn't exist
     if (!rcpputils::fs::create_directories(log_dir)) {
       RCLCPP_WARN(this->get_logger(), "Failed to create log directory: %s", log_dir.c_str());
@@ -57,15 +58,15 @@ public:
 
     // Open CSV file
     RCLCPP_INFO(this->get_logger(), "Attempting to open CSV file: %s", csv_file_.c_str());
-    csv_file_stream_.open(csv_file_, std::ios::out); // No append mode for new file
+    csv_file_stream_.open(csv_file_, std::ios::out);
     if (!csv_file_stream_.is_open() || !csv_file_stream_.good()) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to open CSV file: %s. Check path and permissions.", csv_file_.c_str());
-      rclcpp::shutdown();
-      return;
+      RCLCPP_ERROR(this->get_logger(), "Failed to open CSV file: %s. Continuing without CSV logging.", csv_file_.c_str());
+      csv_file_ = "";
+    } else {
+      csv_file_stream_ << "Angle(deg),Range(m),Intensity\n";
+      csv_file_stream_.flush();
+      RCLCPP_INFO(this->get_logger(), "CSV file opened and header written");
     }
-    csv_file_stream_ << "Angle(deg),Range(m),Intensity\n";
-    csv_file_stream_.flush();
-    RCLCPP_INFO(this->get_logger(), "CSV file opened and header written");
 
     // Initialize LiDAR
     try {
@@ -144,7 +145,7 @@ private:
       motor_pub_->publish(rpms);
 
       // Write to CSV
-      if (csv_file_stream_.is_open() && csv_file_stream_.good()) {
+      if (!csv_file_.empty() && csv_file_stream_.is_open() && csv_file_stream_.good()) {
         RCLCPP_DEBUG(this->get_logger(), "Writing %zu points to CSV", scan->ranges.size());
         for (size_t i = 0; i < scan->ranges.size(); ++i) {
           float angle = scan->angle_min + i * scan->angle_increment;
@@ -155,12 +156,9 @@ private:
         if (!csv_file_stream_.good()) {
           RCLCPP_ERROR(this->get_logger(), "Failed to write data to CSV");
           csv_file_stream_.close();
-          rclcpp::shutdown();
-          return;
+          csv_file_ = "";
         }
         RCLCPP_DEBUG(this->get_logger(), "Wrote data to CSV");
-      } else {
-        RCLCPP_WARN(this->get_logger(), "CSV file stream is not open or in bad state");
       }
     }
   }
