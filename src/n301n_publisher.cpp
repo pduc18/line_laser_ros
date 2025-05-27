@@ -40,7 +40,7 @@ public:
     auto now_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
     ss << std::put_time(std::localtime(&now_time_t), "%Y%m%d_%H%M%S");
-    std::string log_dir = "/home/duc/ros2_ws/src/line_laser_ros/log";
+    std::string log_dir = std::string(std::getenv("HOME")) + "/ros2_ws/log";
     // Create log directory if it doesn't exist
     if (!rcpputils::fs::create_directories(log_dir)) {
       RCLCPP_WARN(this->get_logger(), "Failed to create log directory: %s", log_dir.c_str());

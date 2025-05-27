@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, EnvironmentVariable
 
 def generate_launch_description():
     # Declare launch arguments
@@ -9,6 +9,7 @@ def generate_launch_description():
     baud_rate = LaunchConfiguration('baud_rate')
     frame_id = LaunchConfiguration('frame_id')
     version_num = LaunchConfiguration('version_num')
+    log_dir = LaunchConfiguration('log_dir')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -31,6 +32,11 @@ def generate_launch_description():
             default_value='1',
             description='Version number: 0 for n301 TOF, 1 for line laser 1 deg, 2 for line laser 0.5 deg'
         ),
+        DeclareLaunchArgument(
+            'log_dir',
+            default_value=[EnvironmentVariable('HOME'), '/ros2_ws/log'],
+            description='Directory for CSV log files'
+        ),
 
         # Node for the LiDAR driver
         Node(
@@ -42,7 +48,8 @@ def generate_launch_description():
                 {'port': port},
                 {'baud_rate': baud_rate},
                 {'frame_id': frame_id},
-                {'version_num': version_num}
+                {'version_num': version_num},
+                {'log_dir': log_dir}
             ]
         ),
 
