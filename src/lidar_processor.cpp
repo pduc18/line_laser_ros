@@ -5,19 +5,24 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <mutex>
+#include <thread>
+#include <queue>
+#include <condition_variable>
 
 class LidarProcessor : public rclcpp::Node
 {
 public:
-  LidarProcessor() : Node("lidar_processor"), io_(), serial_(io_)
+  LidarProcessor()
+  : Node("lidar_processor"), io_(), serial_(io_), exit_flag_(false)
   {
-    // Declare and get UART parameters
+    // UART parameters
     this->declare_parameter<std::string>("uart_port", "/dev/ttyUSB1");
     this->declare_parameter<int>("uart_baud_rate", 115200);
     std::string uart_port = this->get_parameter("uart_port").as_string();
     int uart_baud_rate = this->get_parameter("uart_baud_rate").as_int();
 
-    // Initialize UART
+    // Open UART
     try {
       serial_.open(uart_port);
       serial_.set_option(boost::asio::serial_port_base::baud_rate(uart_baud_rate));
@@ -28,15 +33,27 @@ public:
       return;
     }
 
-    // Subscribe to /scan topic
+    // Sub to /scan
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
       "scan", 10, std::bind(&LidarProcessor::scan_callback, this, std::placeholders::_1));
 
-    RCLCPP_INFO(this->get_logger(), "LidarProcessor started, subscribed to /scan");
+    // Start UART thread
+    uart_thread_ = std::thread(&LidarProcessor::uart_writer_thread, this);
+
+    RCLCPP_INFO(this->get_logger(), "LidarProcessor started.");
   }
 
   ~LidarProcessor()
   {
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex_);
+      exit_flag_ = true;
+    }
+    queue_cv_.notify_all();
+    if (uart_thread_.joinable()) {
+      uart_thread_.join();
+    }
+
     if (serial_.is_open()) {
       serial_.close();
       RCLCPP_INFO(this->get_logger(), "UART port closed");
@@ -46,46 +63,68 @@ public:
 private:
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
-    // Find minimum valid range and corresponding angle
-    float min_range = msg->range_max; // Initialize to max range (6.0 m)
-    float min_angle = 0.0;
+    float min_range = msg->range_max;
     size_t min_index = 0;
-
     for (size_t i = 0; i < msg->ranges.size(); ++i) {
-      float range = msg->ranges[i];
-      if (range >= msg->range_min && range <= msg->range_max) {
-        if (range < min_range) {
-          min_range = range;
-          min_index = i;
-        }
+      float r = msg->ranges[i];
+      if (r >= msg->range_min && r <= msg->range_max && r < min_range) {
+        min_range = r;
+        min_index = i;
       }
     }
 
-    if (min_range < msg->range_max) {
-      min_angle = (msg->angle_min + min_index * msg->angle_increment) * 180.0 / M_PI;
-      RCLCPP_INFO(this->get_logger(), "Closest obstacle: Distance=%.2f m, Angle=%.2f deg",
-                  min_range, min_angle);
+    if (min_range == msg->range_max) return;
 
-      // Prepare UART message: "Dist: X.XX, Angle: Y.YY\n"
-      std::stringstream ss;
-      ss << std::fixed << std::setprecision(2) << "Dist: " << min_range << ", Angle: " << min_angle << "\n";
-      std::string message = ss.str();
+    float min_angle = (msg->angle_min + min_index * msg->angle_increment) * 180.0 / M_PI;
 
-      // Transmit over UART
+    std::stringstream ss;
+    ss << "#" << std::fixed << std::setprecision(2)
+       << min_range << "," << min_angle << "\r\n";
+
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex_);
+      message_queue_.push(ss.str());
+    }
+    queue_cv_.notify_one();
+  }
+
+  void uart_writer_thread()
+  {
+    while (rclcpp::ok()) {
+      std::string message;
+
+      {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        queue_cv_.wait(lock, [this]() {
+          return !message_queue_.empty() || exit_flag_;
+        });
+
+        if (exit_flag_ && message_queue_.empty()) break;
+
+        message = message_queue_.front();
+        message_queue_.pop();
+      }
+
       try {
         boost::asio::write(serial_, boost::asio::buffer(message));
-        RCLCPP_DEBUG(this->get_logger(), "Sent UART message: %s", message.c_str());
+        RCLCPP_INFO(this->get_logger(), "Sent UART: %s", message.c_str());
       } catch (const boost::system::system_error& ex) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to write to UART: %s", ex.what());
+        RCLCPP_ERROR(this->get_logger(), "UART write error: %s", ex.what());
       }
-    } else {
-      RCLCPP_INFO(this->get_logger(), "No valid obstacles detected within range");
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   }
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
   boost::asio::io_service io_;
   boost::asio::serial_port serial_;
+
+  std::mutex queue_mutex_;
+  std::condition_variable queue_cv_;
+  std::queue<std::string> message_queue_;
+  std::thread uart_thread_;
+  bool exit_flag_;
 };
 
 int main(int argc, char *argv[])
