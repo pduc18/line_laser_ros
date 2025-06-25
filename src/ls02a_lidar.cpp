@@ -1,9 +1,9 @@
-#include "n301n_lidar.h"
+#include "ls02a_lidar.h"
 #include <iostream>
 
 using namespace std;
-namespace n301_lidar_driver {
-n301n_lidar::n301n_lidar(const std::string& port, uint32_t baud_rate, boost::asio::io_service& io)
+namespace ls02a_lidar_driver {
+ls02a_lidar::ls02a_lidar(const std::string& port, uint32_t baud_rate, boost::asio::io_service& io)
   : port_(port), baud_rate_(baud_rate), shutting_down_(false), serial_(io, port_)
 {
   try {
@@ -15,12 +15,12 @@ n301n_lidar::n301n_lidar(const std::string& port, uint32_t baud_rate, boost::asi
   }
 }
 
-n301n_lidar::~n301n_lidar()
+ls02a_lidar::~ls02a_lidar()
 {
   serial_.close();
 }
 
-void n301n_lidar::poll(sensor_msgs::msg::LaserScan::SharedPtr scan, int version_num)
+void ls02a_lidar::poll(sensor_msgs::msg::LaserScan::SharedPtr scan, int version_num)
 {
   uint8_t start_count = 0;
   bool got_scan = false;
@@ -196,7 +196,7 @@ void n301n_lidar::poll(sensor_msgs::msg::LaserScan::SharedPtr scan, int version_
   }
 }
 
-void n301n_lidar::close()
+void ls02a_lidar::close()
 {
   shutting_down_ = true;
 }

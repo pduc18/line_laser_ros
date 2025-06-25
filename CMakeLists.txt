@@ -20,18 +20,18 @@ include_directories(
 )
 
 # Declare C++ executables
-add_executable(n301n_serial_publisher
-  src/n301n_lidar.cpp
-  src/n301n_publisher.cpp
+add_executable(ls02a_serial_publisher
+  src/ls02a_lidar.cpp
+  src/ls02a_publisher.cpp
 )
-ament_target_dependencies(n301n_serial_publisher
+ament_target_dependencies(ls02a_serial_publisher
   rclcpp
   sensor_msgs
   std_msgs
   Boost
   rcpputils
 )
-target_link_libraries(n301n_serial_publisher
+target_link_libraries(ls02a_serial_publisher
   ${Boost_LIBRARIES}
 )
 
@@ -51,7 +51,7 @@ target_link_libraries(lidar_processor
 
 # Install targets
 install(TARGETS
-  n301n_serial_publisher
+  ls02a_serial_publisher
   lidar_processor
   DESTINATION lib/${PROJECT_NAME}
 )

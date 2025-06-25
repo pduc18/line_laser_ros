@@ -30,7 +30,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'version_num',
             default_value='1',
-            description='Version number: 0 for n301 TOF, 1 for line laser 1 deg, 2 for line laser 0.5 deg'
+            description='Version number: 0 for ls02a TOF, 1 for line laser 1 deg, 2 for line laser 0.5 deg'
         ),
         DeclareLaunchArgument(
             'log_dir',
@@ -41,7 +41,7 @@ def generate_launch_description():
         # Node for the LiDAR driver
         Node(
             package='line_laser_ros',
-            executable='n301n_serial_publisher',
+            executable='ls02a_serial_publisher',
             name='line_laser',
             output='screen',
             parameters=[

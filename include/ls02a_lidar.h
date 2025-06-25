@@ -1,5 +1,5 @@
-#ifndef N301N_LIDAR_H
-#define N301N_LIDAR_H
+#ifndef LS02A_LIDAR_H
+#define LS02A_LIDAR_H
 
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <boost/asio.hpp>
@@ -7,8 +7,8 @@
 #include <string>
 #include <memory>
 
-namespace n301_lidar_driver {
-class n301n_lidar
+namespace ls02a_lidar_driver {
+class ls02a_lidar
 {
 public:
   uint16_t rpms;
@@ -19,12 +19,12 @@ public:
    * @param baud_rate The baud rate to open the serial port at.
    * @param io Boost ASIO IO Service to use when creating the serial port object
    */
-  n301n_lidar(const std::string& port, uint32_t baud_rate, boost::asio::io_service& io);
+  ls02a_lidar(const std::string& port, uint32_t baud_rate, boost::asio::io_service& io);
 
   /**
    * @brief Default destructor
    */
-  ~n301n_lidar();
+  ~ls02a_lidar();
 
   /**
    * @brief Poll the laser to get a new scan. Blocks until a complete new scan is received or close is called.
@@ -43,8 +43,8 @@ private:
   int version_num;
 
   bool shutting_down_; ///< @brief Flag for whether the driver is supposed to be shutting down or not
-  boost::asio::serial_port serial_; ///< @brief Actual serial port object for reading/writing to the n301n lidar Scanner
-  uint16_t motor_speed_; ///< @brief current motor speed as reported by the n301n lidar.
+  boost::asio::serial_port serial_; ///< @brief Actual serial port object for reading/writing to the ls02a lidar Scanner
+  uint16_t motor_speed_; ///< @brief current motor speed as reported by the ls02a lidar.
 
   /**
    * @brief checkSum
@@ -54,6 +54,6 @@ private:
   uint16_t checkSum(const uint8_t *p_byte);
 };
 
-} // namespace n301_lidar_driver
+} // namespace ls02a_lidar_driver
 
-#endif // N301N_LIDAR_H
+#endif // ls02a_LIDAR_H

@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <sstream>
 #include <rcpputils/filesystem_helper.hpp>
-#include "n301n_lidar.h"
+#include "ls02a_lidar.h"
 
 volatile sig_atomic_t g_signal_status = 0;
 
@@ -70,12 +70,12 @@ public:
 
     // Initialize LiDAR
     try {
-      laser_ = std::make_unique<n301_lidar_driver::n301n_lidar>(port_, baud_rate_, io_);
+      laser_ = std::make_unique<ls02a_lidar_driver::ls02a_lidar>(port_, baud_rate_, io_);
       RCLCPP_INFO(this->get_logger(), "LiDAR initialized successfully");
       
       switch (version_num_) {
         case 0:
-          RCLCPP_INFO(this->get_logger(), "It is n301 TOF with 360 deg FOV");
+          RCLCPP_INFO(this->get_logger(), "It is ls02a TOF with 360 deg FOV");
           break;
         case 1:
           RCLCPP_INFO(this->get_logger(), "It is line laser with 1 deg resolution");
@@ -170,7 +170,7 @@ private:
   std::string csv_file_;
   std::ofstream csv_file_stream_;
   boost::asio::io_service io_;
-  std::unique_ptr<n301_lidar_driver::n301n_lidar> laser_;
+  std::unique_ptr<ls02a_lidar_driver::ls02a_lidar> laser_;
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub_;
   rclcpp::Publisher<std_msgs::msg::UInt16>::SharedPtr motor_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
